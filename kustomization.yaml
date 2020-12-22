@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: istio-system
+commonLabels:
+  apisix.apache.org/created_by: envoy-apisix
+resources:
+  - ./configmaps/envoy-apisix-configmap-0
+  - ./configmaps/envoy-apisix-configmap-1
+  - ./configmaps/envoy-apisix-configmap-2
+  - ./configmaps/envoy-apisix-configmap-3
