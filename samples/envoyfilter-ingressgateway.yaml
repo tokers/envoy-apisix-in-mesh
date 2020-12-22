@@ -1,0 +1,64 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: edge-lua-filter-per-route
+spec:
+  workloadLabels:
+    labels:
+      app: istio-ingressgateway
+  configPatches:
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration:
+          vhost:
+            route:
+              name: bookinfo-gateway-route.productpage
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.lua:
+              "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.LuaPerRoute"
+              source_code:
+                inline_string: |
+                  -- Called on the response path.
+                  package.path = "/usr/local/share/lua/?.lua;;"
+                  require("apisix.entry")
+
+          metadata:
+            filter_metadata:
+              envoy.filters.http.lua:
+                plugins:
+                - name: redirect
+                  conf:
+                    ret_code: 302
+                    uri: https://apisix.apache.org
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: edge-lua-filter
+spec:
+  workloadLabels:
+    labels:
+      app: istio-ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.http_connection_manager"
+      match:
+        context: GATEWAY
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inline_code: |
+              function envoy_on_request(request_handle)
+              end
+              function envoy_on_response(response_handle)
+              end
