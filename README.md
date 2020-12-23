@@ -17,16 +17,24 @@ We will use the [Bookinfo Application](https://istio.io/latest/docs/examples/boo
 Install all the necessary apps by running:
 
 ```
-$ kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/bookinfo/platform/kube/bookinfo.yaml -n bookinfo
 ```
 
 Then, add a VirtualService resource to configure the istio-gateway, so that it knows how to forward trafic to the mesh. Note we have our own [copy](./samples/bookinfo-gateway.yaml) of it with some minor changes (use FQDN).
+
+```
+$ kubectl apply -f https://raw.githubusercontent.com/tokers/envoy-apisix-in-mesh/main/samples/bookinfo-gateway.yaml -n istio-system
+```
 
 ## Extra Steps
 
 Although Envoy embeds LuaJIT to extend itself, all Lua codes (not the runtime) are prepared by Users, so does envoy-apisix, so all Lua files in envoy-apisix need to be mounted into the istio-ingressgateway (gateway) and all istio-proxy (sidecar) containers.
 
-We have a [configmap.go](configmap.go) script to iterate all Lua codes in envoy-apisix and create correpsonding configmap resouces. Run it and you will get:
+We have a [configmap.go](configmap.go) script to iterate all Lua codes in envoy-apisix and create correpsonding configmap resouces.
+
+We will run it twice for our demostrations.
+
+The first run will generate necessary resources for the istio-ingressgateway, and the second one is for sidecars.
 
 ```sh
 $ LUA_DIR=/path/to/envoy-apisix/lua go run configmap.go
@@ -73,7 +81,7 @@ configmap/envoy-apisix-configmap-2 configured
 configmap/envoy-apisix-configmap-3 configured
 ```
 
-Now, as per the 3rd step, we should re-install the istio-ingressgateway, thanks for the good design of istio's helm charts, we don't need to hack it any more.
+As per the 3rd step, we should re-install the istio-ingressgateway, thanks for the good design of istio's helm charts, we don't need to hack it any more.
 
 ```sh
 helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress --set global.imagePullPolicy="IfNotPresent" --set global.hub="docker.io/istio" --set global.tag="1.8.1" --set global.jwtPolicy=first-party-jwt \
@@ -98,6 +106,42 @@ TEST SUITE: None
 ```
 
 And it's similar to change the istio-injector-template (to be continued).
+
+Now try the sidecar.
+
+```
+$ NAMESPACE=bookinfo LUA_DIR=/path/to/envoy-apisix/lua go run configmap.go
+Created configmap file configmaps/envoy-apisix-configmap-0
+Created configmap file configmaps/envoy-apisix-configmap-1
+Created configmap file configmaps/envoy-apisix-configmap-2
+Created configmap file configmaps/envoy-apisix-configmap-3
+Created kustomization.yaml
+
+Run
+	kubectl apply -k .
+
+to install configmaps in namespace bookinfo
+
+Please add the following annotations to your application Pod template
+
+sidecar.istio.io/userVolume: |
+   {"envoy-apisix-configmap-0":{"configMap":{"name":"envoy-apisix-configmap-0"},"name":"envoy-apisix-configmap-0"},"envoy-apisix-configmap-1":{"configMap":{"name":"envoy-apisix-configmap-1"},"name":"envoy-apisix-configmap-1"},"envoy-apisix-configmap-2":{"configMap":{"name":"envoy-apisix-configmap-2"},"name":"envoy-apisix-configmap-2"},"envoy-apisix-configmap-3":{"configMap":{"name":"envoy-apisix-configmap-3"},"name":"envoy-apisix-configmap-3"}}
+
+sidecar.istio.io/userVolumeMount: |
+   {"envoy-apisix-configmap-0":{"name":"envoy-apisix-configmap-0","mountPath":"/usr/local/share/lua/apisix/core"},"envoy-apisix-configmap-1":{"name":"envoy-apisix-configmap-1","mountPath":"/usr/local/share/lua/apisix"},"envoy-apisix-configmap-2":{"name":"envoy-apisix-configmap-2","mountPath":"/usr/local/share/lua/apisix/plugins"},"envoy-apisix-configmap-3":{"name":"envoy-apisix-configmap-3","mountPath":"/usr/local/share/lua/deps/net"}}
+```
+
+It also generates ConfigMap resources which need to be mounted to the istio-proxy container, Istio's injection template will check annotions `sidecar.istio.io/userVolume` and `sidecar.istio.io/userVolumeMount` in application pod template, which allows us to mount custom volumes.
+
+Now edit the deployment of reviews, and scale it down and up.
+
+```
+$ kube edit -n bookinfo reviews-v1
+# add annotations sidecar.istio.io/userVolumeMount and sidecar.istio.io/userVolume.
+
+$ kube scale -n bookinfo --replicas 0
+$ kube scale -n bookinfo --replicas 1
+```
 
 ## Goal
 
@@ -140,3 +184,18 @@ productpage -vo /dev/null
 ```
 
 When you see this output in your own machine, it means the plugin has already come into force.
+
+### URI Blocker
+
+URI Blocker allows you to deny some types of URI path and reject with custom status code. We have [envoyfilter-sidecar-reviews-v1.yaml](./samples/envoyfilter-sidecar-reviews-v1.yaml) to make the sidecar in reviews-v1 reject URI which contains `reviews`.
+
+```
+# first delete the legacy rules in istio-ingressgateway
+$ kubectl delete -f samples/envoyfilter-ingressgateway.yaml -n istio-system
+$ kubectl apply -f samples/envoyfilter-sidecar-reviews-v1.yaml -n bookinfo
+
+export ISTIO_INGRESSGATEWAY_PORT=$(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
+export ISTIO_INGRESSGATEWAY_HOST=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[0].address}')
+```
+
+Now open your browser and access `http://$ISTIO_INGRESSGATEWAY_HOST:$ISTIO_INGRESSGATEWAY_PORT/productpage`, refresh the page several times (be patient, since Envoy uses keep-alived connections), and you will see `Sorry, product reviews are currently unavailable for this book.` in the Bookinfo Reviews bar.
