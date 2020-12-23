@@ -29,15 +29,29 @@ import (
 )
 
 var (
-	_luaDir    = "./lua"
-	_namespace = "istio-system"
-	_mountPrefix = "/usr/local/share/"
+	_luaDir      = "./lua"
+	_namespace   = "istio-system"
+	_mountPrefix = "/usr/local/share/lua"
 )
 
 type configVolume struct {
 	configMap map[string]string
 	mountPath string
 	name      string
+}
+
+type userConfigMap struct {
+	Name string `json:"name"`
+}
+
+type userVolume struct {
+	ConfigMap userConfigMap `json:"configMap"`
+	Name      string        `json:"name"`
+}
+
+type userVolumeMount struct {
+	Name      string `json:"name"`
+	MountPath string `json:"mountPath"`
 }
 
 func saveConfigMap(name string, cm *corev1.ConfigMap) {
@@ -96,6 +110,8 @@ func main() {
 		builder strings.Builder
 	)
 	suiteset := make(map[string]*configVolume)
+	uv := make(map[string]*userVolume)
+	uvm := make(map[string]*userVolumeMount)
 
 	err := filepath.Walk(_luaDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -109,8 +125,7 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			dir := filepath.Dir(path)
-			dir = filepath.Join(_mountPrefix, dir)
+			dir := filepath.Dir(filepath.Join(_mountPrefix, strings.TrimPrefix(path, _luaDir)))
 			suite, ok := suiteset[dir]
 			if !ok {
 				name := fmt.Sprintf("envoy-apisix-configmap-%d", cnt)
@@ -121,6 +136,16 @@ func main() {
 				}
 				suiteset[dir] = suite
 				cnt++
+				uv[name] = &userVolume{
+					ConfigMap: userConfigMap{
+						Name: name,
+					},
+					Name: name,
+				}
+				uvm[name] = &userVolumeMount{
+					Name:      name,
+					MountPath: dir,
+				}
 			}
 			//suite.configMap[info.Name()] = strconv.Quote(string(content))
 			suite.configMap[info.Name()] = string(content)
@@ -173,8 +198,27 @@ func main() {
 		panic(err)
 	}
 	fmt.Println("Created kustomization.yaml")
+	fmt.Println("\nRun\n\tkubectl apply -k .\n\nto install configmaps in namespace", _namespace)
 
-	fmt.Println("\nRun\n\tkubectl apply -k .\n\nto install configmaps")
-	fmt.Println("\nPlease add these flags when you use helm to install istiod/istio-ingressgateway\n")
-	fmt.Println(builder.String())
+	if _namespace == "istio-system" {
+		fmt.Println("\nPlease add these flags when you use helm to install istiod/istio-ingressgateway\n")
+		fmt.Println(builder.String())
+		return
+	}
+
+	fmt.Println("\nPlease add the following annotations to your application Pod template\n")
+
+	value, err := json.Marshal(uv)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("sidecar.istio.io/userVolume: |")
+	fmt.Println("  ", string(value), "\n")
+
+	value, err = json.Marshal(uvm)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("sidecar.istio.io/userVolumeMount: |")
+	fmt.Println("  ", string(value))
 }

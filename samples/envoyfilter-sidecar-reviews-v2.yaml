@@ -1,48 +1,58 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: edge-lua-filter-per-route
+  name: sidecar-lua-filter-per-route-2
+  namespace: bookinfo
 spec:
   workloadLabels:
     labels:
-      app: istio-ingressgateway
+        app: reviews
+        version: v2
   configPatches:
     - applyTo: HTTP_ROUTE
       match:
-        context: GATEWAY
+        context: SIDECAR_INBOUND
         routeConfiguration:
           vhost:
-            name: "*:80"
+            name: "inbound|http|9080"
             route:
-              name: bookinfo-gateway-route.productpage
+              name: default
       patch:
         operation: MERGE
         value:
+          response_headers_to_add:
+          - header:
+              key: "myname"
+              value: "alex"
           typed_per_filter_config:
             envoy.filters.http.lua:
               "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.LuaPerRoute"
               source_code:
                 inline_string: |
-                  -- Called on the response path.
                   package.path = "/usr/local/share/lua/?.lua;;"
                   require("apisix.entry")
           metadata:
             filter_metadata:
               envoy.filters.http.lua:
                 plugins:
-                - name: redirect
+                - name: uri-blocker
                   conf:
-                    ret_code: 302
-                    uri: https://apisix.apache.org
+                    rejected_code: 403
+                    block_rules: 
+                    - reviews
+
+
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: edge-lua-filter
+  name: sidecar-lua-filter-2
+  namespace: bookinfo
 spec:
   workloadLabels:
     labels:
-      app: istio-ingressgateway
+        app: reviews
+        version: v2
   configPatches:
     - applyTo: HTTP_FILTER
       listener:
@@ -50,7 +60,7 @@ spec:
           filter:
             name: "envoy.http_connection_manager"
       match:
-        context: GATEWAY
+        context: SIDECAR_INBOUND
       patch:
         operation: INSERT_BEFORE
         value:
