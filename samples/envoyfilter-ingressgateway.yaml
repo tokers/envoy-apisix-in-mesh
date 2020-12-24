@@ -14,7 +14,7 @@ spec:
           vhost:
             name: "*:80"
             route:
-              name: bookinfo-gateway-route.productpage
+              name: bookinfo-gateway-route.apisix
       patch:
         operation: MERGE
         value:
@@ -23,7 +23,6 @@ spec:
               "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.LuaPerRoute"
               source_code:
                 inline_string: |
-                  -- Called on the response path.
                   package.path = "/usr/local/share/lua/?.lua;;"
                   require("apisix.entry")
           metadata:

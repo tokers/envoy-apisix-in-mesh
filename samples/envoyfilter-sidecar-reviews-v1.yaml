@@ -41,7 +41,6 @@ spec:
                     block_rules: 
                     - reviews
 
-
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
