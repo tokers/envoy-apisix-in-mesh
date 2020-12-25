@@ -31,7 +31,7 @@ import (
 var (
 	_luaDir      = "./lua"
 	_namespace   = "istio-system"
-	_mountPrefix = "/usr/local/share/lua"
+	_mountPrefix = "/usr/local/share/lua/5.1"
 )
 
 type configVolume struct {
