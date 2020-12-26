@@ -39,31 +39,31 @@ The first run will generate necessary resources for the istio-ingressgateway, an
 ```sh
 $ LUA_DIR=/path/to/envoy-apisix/lua go run configmap.go
 
+Created configmap file configmaps/envoy-apisix-configmap-3
 Created configmap file configmaps/envoy-apisix-configmap-0
 Created configmap file configmaps/envoy-apisix-configmap-1
 Created configmap file configmaps/envoy-apisix-configmap-2
-Created configmap file configmaps/envoy-apisix-configmap-3
 Created kustomization.yaml
 
 Run
 	kubectl apply -k .
 
-to install configmaps
+to install configmaps in namespace istio-system
 
 Please add these flags when you use helm to install istiod/istio-ingressgateway
 
---set gateways.istio-ingressgateway.configVolumes\[0\].mountPath="/usr/local/share/Users/alex/Workstation/tokers/envoy-apisix/lua/apisix/core" \
---set gateways.istio-ingressgateway.configVolumes\[0\].name="envoy-apisix-configmap-0" \
---set gateways.istio-ingressgateway.configVolumes\[0\].configMapName="envoy-apisix-configmap-0" \
---set gateways.istio-ingressgateway.configVolumes\[1\].mountPath="/usr/local/share/Users/alex/Workstation/tokers/envoy-apisix/lua/apisix" \
---set gateways.istio-ingressgateway.configVolumes\[1\].name="envoy-apisix-configmap-1" \
---set gateways.istio-ingressgateway.configVolumes\[1\].configMapName="envoy-apisix-configmap-1" \
---set gateways.istio-ingressgateway.configVolumes\[2\].mountPath="/usr/local/share/Users/alex/Workstation/tokers/envoy-apisix/lua/apisix/plugins" \
---set gateways.istio-ingressgateway.configVolumes\[2\].name="envoy-apisix-configmap-2" \
---set gateways.istio-ingressgateway.configVolumes\[2\].configMapName="envoy-apisix-configmap-2" \
---set gateways.istio-ingressgateway.configVolumes\[3\].mountPath="/usr/local/share/Users/alex/Workstation/tokers/envoy-apisix/lua/deps/net" \
---set gateways.istio-ingressgateway.configVolumes\[3\].name="envoy-apisix-configmap-3" \
---set gateways.istio-ingressgateway.configVolumes\[3\].configMapName="envoy-apisix-configmap-3" \
+--set gateways.istio-ingressgateway.configVolumes\[0\].mountPath="/usr/local/share/lua/5.1/deps/net" \
+--set gateways.istio-ingressgateway.configVolumes\[0\].name="envoy-apisix-configmap-3" \
+--set gateways.istio-ingressgateway.configVolumes\[0\].configMapName="envoy-apisix-configmap-3" \
+--set gateways.istio-ingressgateway.configVolumes\[1\].mountPath="/usr/local/share/lua/5.1/apisix/core" \
+--set gateways.istio-ingressgateway.configVolumes\[1\].name="envoy-apisix-configmap-0" \
+--set gateways.istio-ingressgateway.configVolumes\[1\].configMapName="envoy-apisix-configmap-0" \
+--set gateways.istio-ingressgateway.configVolumes\[2\].mountPath="/usr/local/share/lua/5.1/apisix" \
+--set gateways.istio-ingressgateway.configVolumes\[2\].name="envoy-apisix-configmap-1" \
+--set gateways.istio-ingressgateway.configVolumes\[2\].configMapName="envoy-apisix-configmap-1" \
+--set gateways.istio-ingressgateway.configVolumes\[3\].mountPath="/usr/local/share/lua/5.1/apisix/plugins" \
+--set gateways.istio-ingressgateway.configVolumes\[3\].name="envoy-apisix-configmap-2" \
+--set gateways.istio-ingressgateway.configVolumes\[3\].configMapName="envoy-apisix-configmap-2" \
 ```
 
 Three kinds of resources are bumped:
@@ -84,19 +84,23 @@ configmap/envoy-apisix-configmap-3 configured
 As per the 3rd step, we should re-install the istio-ingressgateway, thanks for the good design of istio's helm charts, we don't need to hack it any more.
 
 ```sh
-helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress --set global.imagePullPolicy="IfNotPresent" --set global.hub="docker.io/istio" --set global.tag="1.8.1" --set global.jwtPolicy=first-party-jwt \
---set gateways.istio-ingressgateway.configVolumes\[0\].mountPath="/usr/local/share/lua/apisix/plugins" \
---set gateways.istio-ingressgateway.configVolumes\[0\].name="envoy-apisix-configmap-2" \
---set gateways.istio-ingressgateway.configVolumes\[0\].configMapName="envoy-apisix-configmap-2" \
---set gateways.istio-ingressgateway.configVolumes\[1\].mountPath="/usr/local/share/lua/deps/net" \
---set gateways.istio-ingressgateway.configVolumes\[1\].name="envoy-apisix-configmap-3" \
---set gateways.istio-ingressgateway.configVolumes\[1\].configMapName="envoy-apisix-configmap-3" \
---set gateways.istio-ingressgateway.configVolumes\[2\].mountPath="/usr/local/share/lua/apisix/core" \
---set gateways.istio-ingressgateway.configVolumes\[2\].name="envoy-apisix-configmap-0" \
---set gateways.istio-ingressgateway.configVolumes\[2\].configMapName="envoy-apisix-configmap-0" \
---set gateways.istio-ingressgateway.configVolumes\[3\].mountPath="/usr/local/share/lua/apisix" \
---set gateways.istio-ingressgateway.configVolumes\[3\].name="envoy-apisix-configmap-1" \
---set gateways.istio-ingressgateway.configVolumes\[3\].configMapName="envoy-apisix-configmap-1"
+$ helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress \
+--set global.imagePullPolicy="IfNotPresent" \
+--set global.hub="docker.io/istio" \
+--set global.tag="1.8.1" \
+--set global.jwtPolicy=first-party-jwt \
+--set gateways.istio-ingressgateway.configVolumes\[0\].mountPath="/usr/local/share/lua/5.1/deps/net" \
+--set gateways.istio-ingressgateway.configVolumes\[0\].name="envoy-apisix-configmap-3" \
+--set gateways.istio-ingressgateway.configVolumes\[0\].configMapName="envoy-apisix-configmap-3" \
+--set gateways.istio-ingressgateway.configVolumes\[1\].mountPath="/usr/local/share/lua/5.1/apisix/core" \
+--set gateways.istio-ingressgateway.configVolumes\[1\].name="envoy-apisix-configmap-0" \
+--set gateways.istio-ingressgateway.configVolumes\[1\].configMapName="envoy-apisix-configmap-0" \
+--set gateways.istio-ingressgateway.configVolumes\[2\].mountPath="/usr/local/share/lua/5.1/apisix" \
+--set gateways.istio-ingressgateway.configVolumes\[2\].name="envoy-apisix-configmap-1" \
+--set gateways.istio-ingressgateway.configVolumes\[2\].configMapName="envoy-apisix-configmap-1" \
+--set gateways.istio-ingressgateway.configVolumes\[3\].mountPath="/usr/local/share/lua/5.1/apisix/plugins" \
+--set gateways.istio-ingressgateway.configVolumes\[3\].name="envoy-apisix-configmap-2" \
+--set gateways.istio-ingressgateway.configVolumes\[3\].configMapName="envoy-apisix-configmap-2"
 NAME: istio-ingress
 LAST DEPLOYED: Tue Dec 22 21:47:57 2020
 NAMESPACE: istio-system
@@ -128,7 +132,7 @@ sidecar.istio.io/userVolume: |
    {"envoy-apisix-configmap-0":{"configMap":{"name":"envoy-apisix-configmap-0"},"name":"envoy-apisix-configmap-0"},"envoy-apisix-configmap-1":{"configMap":{"name":"envoy-apisix-configmap-1"},"name":"envoy-apisix-configmap-1"},"envoy-apisix-configmap-2":{"configMap":{"name":"envoy-apisix-configmap-2"},"name":"envoy-apisix-configmap-2"},"envoy-apisix-configmap-3":{"configMap":{"name":"envoy-apisix-configmap-3"},"name":"envoy-apisix-configmap-3"}}
 
 sidecar.istio.io/userVolumeMount: |
-   {"envoy-apisix-configmap-0":{"name":"envoy-apisix-configmap-0","mountPath":"/usr/local/share/lua/apisix/core"},"envoy-apisix-configmap-1":{"name":"envoy-apisix-configmap-1","mountPath":"/usr/local/share/lua/apisix"},"envoy-apisix-configmap-2":{"name":"envoy-apisix-configmap-2","mountPath":"/usr/local/share/lua/apisix/plugins"},"envoy-apisix-configmap-3":{"name":"envoy-apisix-configmap-3","mountPath":"/usr/local/share/lua/deps/net"}}
+   {"envoy-apisix-configmap-0":{"name":"envoy-apisix-configmap-0","mountPath":"/usr/local/share/lua/5.1/apisix/core"},"envoy-apisix-configmap-1":{"name":"envoy-apisix-configmap-1","mountPath":"/usr/local/share/lua/5.1/apisix"},"envoy-apisix-configmap-2":{"name":"envoy-apisix-configmap-2","mountPath":"/usr/local/share/lua/5.1/apisix/plugins"},"envoy-apisix-configmap-3":{"name":"envoy-apisix-configmap-3","mountPath":"/usr/local/share/lua/5.1/deps/net"}}
 ```
 
 It also generates ConfigMap resources which need to be mounted to the istio-proxy container, Istio's injection template will check annotions `sidecar.istio.io/userVolume` and `sidecar.istio.io/userVolumeMount` in application pod template, which allows us to mount custom volumes.
